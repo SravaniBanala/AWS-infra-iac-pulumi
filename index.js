@@ -20,6 +20,40 @@ const publicCidrBlock = config.require('publicCidrBlock');
 
 const tags = config.getObject('tags');
 
+const amiOwner = config.require('amiOwner');
+
+const amiName = config.require('amiName');
+
+const debianAmi = aws.ec2.getAmi({
+
+
+
+    mostRecent: true,
+
+    filters: [
+
+        {
+
+            name: "name",
+
+            values: [amiName],
+
+        },
+
+        {
+
+            name: "virtualization-type",
+
+            values: ["hvm"],
+
+        },
+
+    ],
+
+    owners: [amiOwner],
+
+});
+
 
 
 aws.getAvailabilityZones({State :"available"}).then(availableZones => {
@@ -182,9 +216,9 @@ aws.getAvailabilityZones({State :"available"}).then(availableZones => {
 
  
 
-        publicSubnets.push(publicSubnetCIDR);
+        publicSubnets.push(publicSubnet.id);
 
-        privateSubnets.push(privateSubnetCIDR);
+        privateSubnets.push(privateSubnet.id);
 
         i=i+1;
 
@@ -192,6 +226,106 @@ aws.getAvailabilityZones({State :"available"}).then(availableZones => {
 
  
 
-    console.log(publicSubnets, privateSubnets)
+    //Creating Security Group for Ec2 Instance
+    //console.log(publicSubnets, privateSubnets)
+    const MyApplicationSecurityGroup = new aws.ec2.SecurityGroup('MyApplicationSecurityGroup', {
+
+        vpcId: vpc.id,
+
+        ingress: [
+
+            {
+
+                protocol: "tcp",
+
+                fromPort: 22,
+
+                toPort: 22,
+
+                cidrBlocks: ["0.0.0.0/0"],
+
+            },
+
+            {
+
+                protocol: "tcp",
+
+                fromPort: 80,
+
+                toPort: 80,
+
+                cidrBlocks: ["0.0.0.0/0"],
+
+            },
+
+            {
+
+                protocol: "tcp",
+
+                fromPort: 443,
+
+                toPort: 443,
+
+                cidrBlocks: ["0.0.0.0/0"],
+
+            },
+
+            {
+
+                protocol: "tcp",
+
+                fromPort: 8087, //APP_PORT
+
+                toPort: 8087,
+
+                cidrBlocks: ["0.0.0.0/0"],
+
+            },
+
+        ],
+
+
+
+    });
+
+
+
+
+    //Ec2 instances will be created in Vpc created above 
+    const ec2Instance = new aws.ec2.Instance("myEC2Instance", {
+
+        //sets the Amazon Machine Image (AMI) for the EC2 instance.
+        ami: debianAmi.then(debianAmi => debianAmi.id),
+
+        //instance type for small 
+        instanceType: "t2.micro",
+
+        //Associates the EC2 instance with VPC 
+        vpc: vpc.id,
+
+        //Specifies the subnet in which the EC2 instance should be launched
+        //subnetId: privateSubnets[0],
+        subnetId: publicSubnets[0],
+
+        keyName: "mywebapp",
+
+        //Assigns the EC2 instance to the security group
+        vpcSecurityGroupIds: [MyApplicationSecurityGroup.id],
+
+        rootBlockDevice: {
+
+            volumeSize: 25,
+
+            volumeType: "gp2",
+
+            deleteOnTermination: true,
+
+        },
+
+        // Add this to protect against accidental termination.
+        disableApiTermination: false,
+
+
+    });
 
 });
