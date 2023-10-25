@@ -9,7 +9,8 @@ const aws = require('@pulumi/aws');
  
 
 const config = new pulumi.Config();
-
+let webappUserData='';
+const envFilePath = "/home/admin/webapp/.env";
 
 
 //const awsRegion = config.get('aws-region');
@@ -23,6 +24,8 @@ const tags = config.getObject('tags');
 const amiOwner = config.require('amiOwner');
 
 const amiName = config.require('amiName');
+
+    
 
 const debianAmi = aws.ec2.getAmi({
 
@@ -284,48 +287,167 @@ aws.getAvailabilityZones({State :"available"}).then(availableZones => {
 
         ],
 
-
+        egress: [
+            {
+                fromPort: 0,
+                toPort: 0,
+                protocol: "-1",
+                cidrBlocks: ["0.0.0.0/0"], // Restrict egress traffic to the internet
+            },
+        ],
 
     });
 
 
 
 
-    //Ec2 instances will be created in Vpc created above 
-    const ec2Instance = new aws.ec2.Instance("myEC2Instance", {
+    
 
-        //sets the Amazon Machine Image (AMI) for the EC2 instance.
-        ami: debianAmi.then(debianAmi => debianAmi.id),
+    // RDS Parameter Group
+    const rdsParameterGroup = new aws.rds.ParameterGroup("rds_parameter_group", {
+        name: "rds-parameter-group",
+        family: "mysql8.0",
+        description: "RDS DB parameter group for MySQL 8.0",
+        parameters: [
+            {
+                name: "max_connections",
+                value: "100",
+            },
+            {
+                name: "innodb_buffer_pool_size",
+                value: "268435456",
+            },
+        ],
+    });
 
-        //instance type for small 
-        instanceType: "t2.micro",
 
-        //Associates the EC2 instance with VPC 
-        vpc: vpc.id,
 
-        //Specifies the subnet in which the EC2 instance should be launched
-        //subnetId: privateSubnets[0],
-        subnetId: publicSubnets[0],
+   // RDS Subnet Group
+    const rdsSubnetGroup = new aws.rds.SubnetGroup("rdssubnetgroup-sg", {
+        name: "rds-subnet-group",
+        subnetIds: [
+        privateSubnets[0],
+        privateSubnets[1],
+        ],
+        description: "Subnet group for the RDS instance",
+      });
 
-        keyName: "mywebapp",
-
-        //Assigns the EC2 instance to the security group
-        vpcSecurityGroupIds: [MyApplicationSecurityGroup.id],
-
-        rootBlockDevice: {
-
-            volumeSize: 25,
-
-            volumeType: "gp2",
-
-            deleteOnTermination: true,
-
+    //RDS Security Group
+    const dbSecurityGroup = new aws.ec2.SecurityGroup("dbSecurityGroup", {
+        vpcId: vpc.id,
+        description: "Database Security Group",
+        ingress: [{
+            fromPort: 3306,   // MySQL/MariaDB port
+            toPort: 3306,
+            protocol: "tcp",
+            securityGroups:[MyApplicationSecurityGroup.id]
+             // Assuming you have an 'applicationSecurityGroup' defined
         },
+    ],
+        egress: [
+            {
+                from_port: 3306,
+                to_port: 3306,
+                protocol:"tcp",
+                securityGroups:[MyApplicationSecurityGroup.id]
+                //cidr_blocks = ["0.0.0.0/0"]
+              },
+        ],
+    });   
 
-        // Add this to protect against accidental termination.
-        disableApiTermination: false,
-
-
+    //RDS Instance 
+    const rdsInstance = new aws.rds.Instance('MydatabaseRdsInstance', {
+        allocatedStorage: 20, // Adjust as needed
+        storageType: 'gp2',
+        engine: 'mysql', // Use the appropriate engine (mysql, mariadb, or postgres)
+        //engineVersion: "5.7",
+        instanceClass: 'db.t2.micro', // Use the cheapest one
+        identifier:"csye6225",
+        dbName: 'csye6225',
+        username: 'csye6225',
+        password: 'root1234',
+        multiAz:false,
+        parameterGroupName: rdsParameterGroup.name,
+        skipFinalSnapshot: true, // Adjust this based on your needs
+        vpcSecurityGroupIds: [dbSecurityGroup.id],
+        dbSubnetGroupName:rdsSubnetGroup.name,
+        publiclyAccessible: false,
     });
+
+//Ec2 instances will be created in Vpc created above 
+const ec2Instance = new aws.ec2.Instance("myEC2Instance", {
+
+    //sets the Amazon Machine Image (AMI) for the EC2 instance.
+    ami: debianAmi.then(debianAmi => debianAmi.id),
+
+    //instance type for small 
+    instanceType: "t2.micro",
+
+    //Associates the EC2 instance with VPC 
+    vpc: vpc.id,
+
+    //Specifies the subnet in which the EC2 instance should be launched
+    //subnetId: privateSubnets[0],
+    subnetId: publicSubnets[0],
+
+    keyName: "mywebapp",
+
+    //userData: webappUserData,
+    userData : pulumi.interpolate`#!/bin/bash
+     if [ -f "$envFilePath" ]; then
+       rm "$envFilePath"
+    fi
+    echo "DB_HOST=\$(echo ${rdsInstance.endpoint} | cut -d':' -f1)" >> /home/admin/webapp/.env
+    echo "DB_DIALECT=mysql" >> /home/admin/webapp/.env
+    echo "DB_USER=${rdsInstance.username}" >> /home/admin/webapp/.env
+    echo "DB_PASSWORD=${rdsInstance.password}" >> /home/admin/webapp/.env
+    echo "DB_DATABASE=${rdsInstance.dbName}" >> /home/admin/webapp/.env
+    echo "PORT=8087" >> /home/admin/webapp/.env
+    `,
+
+    //Assigns the EC2 instance to the security group
+    vpcSecurityGroupIds: [MyApplicationSecurityGroup.id],
+
+    rootBlockDevice: {
+
+        volumeSize: 25,
+
+        volumeType: "gp2",
+
+        deleteOnTermination: true,
+
+    },
+
+    // Add this to protect against accidental termination.
+    disableApiTermination: false,
+
 
 });
+
+
+
+   // User Data 
+
+
+
+   
+    webappUserData = pulumi.interpolate`cat <<EOF > /home/admin/webapp/.env
+    NODE_ENV=dev
+    PORT=8087
+    DB_DIALECT=mysql
+    DB_HOST=\$(echo ${rdsInstance.endpoint} | cut -d':' -f1)
+    DB_USER=${rdsInstance.username}
+    DB_PASSWORD=${rdsInstance.password}
+    DB_DATABASE=${rdsInstance.dbName}
+    EOF`;
+
+    //webappUserData: pulumi.interpolate`#!/bin/bash\nrm webapp/.env\necho "DATABASE_HOST: mohan.c4tltzid5dl3.us-east-1.rds.amazonaws.com" >> /home/admin/webapp/.env\necho "DATABASE_USER: mohan" >> /home/admin/webapp/.env\necho "DATABASE_PASSWORD: password" >> /home/admin/webapp/.env\necho "DATABASE_NAME: test" >> /home/admin/webapp/.env\necho "PORT: 8080" >> /home/admin/webapp/.env\n`,
+
+
+});
+
+
+
+
+
+
