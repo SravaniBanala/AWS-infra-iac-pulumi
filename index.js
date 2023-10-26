@@ -10,7 +10,7 @@ const aws = require('@pulumi/aws');
 
 const config = new pulumi.Config();
 let webappUserData='';
-const envFilePath = "/home/admin/webapp/.env";
+const envFilePath = "/home/webappuser/webapp/.env";
 
 
 //const awsRegion = config.get('aws-region');
@@ -397,12 +397,12 @@ const ec2Instance = new aws.ec2.Instance("myEC2Instance", {
      if [ -f "$envFilePath" ]; then
        rm "$envFilePath"
     fi
-    echo "DB_HOST=\$(echo ${rdsInstance.endpoint} | cut -d':' -f1)" >> /home/admin/webapp/.env
-    echo "DB_DIALECT=mysql" >> /home/admin/webapp/.env
-    echo "DB_USER=${rdsInstance.username}" >> /home/admin/webapp/.env
-    echo "DB_PASSWORD=${rdsInstance.password}" >> /home/admin/webapp/.env
-    echo "DB_DATABASE=${rdsInstance.dbName}" >> /home/admin/webapp/.env
-    echo "PORT=8087" >> /home/admin/webapp/.env
+    echo "DB_HOST=\$(echo ${rdsInstance.endpoint} | cut -d':' -f1)" >> /home/webappuser/webapp/.env
+    echo "DB_DIALECT=mysql" >> /home/webappuser/webapp/.env
+    echo "DB_USER=${rdsInstance.username}" >> /home/webappuser/webapp/.env
+    echo "DB_PASSWORD=${rdsInstance.password}" >> /home/webappuser/webapp/.env
+    echo "DB_DATABASE=${rdsInstance.dbName}" >> /home/webappuser/webapp/.env
+    echo "PORT=8087" >> /home/webappuser/webapp/.env
     `,
 
     //Assigns the EC2 instance to the security group

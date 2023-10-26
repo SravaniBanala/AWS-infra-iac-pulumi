@@ -5,7 +5,7 @@ config:
   cidrBlock: 10.0.0.0/16
   publicCidrBlock: 0.0.0.0/0
   amiOwner: 132610685824
-  amiName: test123-20231016085408
+  amiName: amicsye6225-20231026000136
   tags:
 
     {Name : Created from Script}
