@@ -1,11 +1,17 @@
 encryptionsalt: v1:g59TBzTxawA=:v1:2C489wxoEqBL7ta4:98PyAtPmrGlau30FZOOQjuD4J0O2Mw==
 config:
   aws:region: us-east-1
-  aws:profile: sbanala2dev
+  aws:profile: sbanalademo
   cidrBlock: 10.0.0.0/16
   publicCidrBlock: 0.0.0.0/0
   amiOwner: 132610685824
-  amiName: amicsye6225-20231026000136
+  amiName: amicsye6225-20231108060126
+  hostedZoneId: Z07534161JVLPYLMEEN2H
+  domainName: demo.pointcsye6225.me
+  keypairName: "mywebapp"
+  rdsUsername: "csye6225"
+  rdsPassword: "root1234"
+  rdsdbName: "csye6225"
   tags:
 
     {Name : Created from Script}

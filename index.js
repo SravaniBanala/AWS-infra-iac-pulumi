@@ -25,7 +25,67 @@ const amiOwner = config.require('amiOwner');
 
 const amiName = config.require('amiName');
 
-    
+const hostedZoneId = config.require('hostedZoneId');
+const domainName = config.require('domainName');
+const keypairName = config.require('keypairName');
+const rdsUsername = config.require('rdsUsername');
+const rdsPassword = config.require('rdsPassword');
+const rdsdbName = config.require('rdsdbName');
+
+const ArecordofDNS = "A";
+
+const ec2Role = new aws.iam.Role("EC2Role", {
+    assumeRolePolicy: JSON.stringify({
+        Version: "2012-10-17",
+        Statement: [
+            {
+                Action: "sts:AssumeRole",
+                Effect: "Allow",
+                Principal: {
+                    Service: "ec2.amazonaws.com",
+                },
+            },
+        ],
+    }),
+});
+
+const cloudWatchPolicy = new aws.iam.Policy("CloudWatchPolicy", {
+    name: "CloudWatchPolicy",
+    description: "Policy for CloudWatch and EC2 permissions",
+    policy: {
+        Version: "2012-10-17",
+        Statement: [
+            {
+                Effect: "Allow",
+                Action: [
+                    "cloudwatch:PutMetricData",
+                    "ec2:DescribeVolumes",
+                    "ec2:DescribeTags",
+                    "logs:PutLogEvents",
+                    "logs:DescribeLogStreams",
+                    "logs:DescribeLogGroups",
+                    "logs:CreateLogStream",
+                    "logs:CreateLogGroup",
+                ],
+                Resource: "*",
+            },
+            {
+                Effect: "Allow",
+                Action: ["ssm:GetParameter"],
+                Resource: "arn:aws:ssm:::parameter/AmazonCloudWatch-*",
+            },
+        ],
+    },
+});
+
+const cloudWatchPolicyAttachment = new aws.iam.PolicyAttachment("CloudWatchPolicyAttachment", {
+    policyArn: cloudWatchPolicy.arn,
+    roles: [ec2Role.name],
+});
+const instanceProfile = new aws.iam.InstanceProfile("EC2InstanceProfile", {
+    name: "EC2InstanceProfile",
+    role: ec2Role.name,
+});
 
 const debianAmi = aws.ec2.getAmi({
 
@@ -363,9 +423,9 @@ aws.getAvailabilityZones({State :"available"}).then(availableZones => {
         //engineVersion: "5.7",
         instanceClass: 'db.t2.micro', // Use the cheapest one
         identifier:"csye6225",
-        dbName: 'csye6225',
-        username: 'csye6225',
-        password: 'root1234',
+        dbName: rdsdbName,
+        username: rdsUsername,
+        password: rdsPassword,
         multiAz:false,
         parameterGroupName: rdsParameterGroup.name,
         skipFinalSnapshot: true, // Adjust this based on your needs
@@ -390,7 +450,9 @@ const ec2Instance = new aws.ec2.Instance("myEC2Instance", {
     //subnetId: privateSubnets[0],
     subnetId: publicSubnets[0],
 
-    keyName: "mywebapp",
+    keyName: keypairName,
+
+    iamInstanceProfile : instanceProfile.name,
 
     //userData: webappUserData,
     userData : pulumi.interpolate`#!/bin/bash
@@ -403,6 +465,7 @@ const ec2Instance = new aws.ec2.Instance("myEC2Instance", {
     echo "DB_PASSWORD=${rdsInstance.password}" >> /home/webappuser/webapp/.env
     echo "DB_DATABASE=${rdsInstance.dbName}" >> /home/webappuser/webapp/.env
     echo "PORT=8087" >> /home/webappuser/webapp/.env
+    sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/opt/amazon-cloudwatch-agent.json
     `,
 
     //Assigns the EC2 instance to the security group
@@ -420,10 +483,27 @@ const ec2Instance = new aws.ec2.Instance("myEC2Instance", {
 
     // Add this to protect against accidental termination.
     disableApiTermination: false,
+    tags: {
+
+        Name: "createdEc2Instance",
+
+    },
 
 
 });
 
+ec2Instance.publicIp.apply(publicIp => {
+    const aRecord = new aws.route53.Record("ARecord", {
+        zoneId: hostedZoneId,
+        name: domainName,
+        type: ArecordofDNS,
+        ttl: 300,
+        records: [publicIp],
+    });
+    
+    // Optionally export the DNS record's FQDN if needed
+    exports.aRecordFQDN = aRecord.fqdn;
+});
 
 
    // User Data 
@@ -445,6 +525,7 @@ const ec2Instance = new aws.ec2.Instance("myEC2Instance", {
 
 
 });
+exports.roleName = ec2Role.name;
 
 
 
