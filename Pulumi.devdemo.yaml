@@ -1,4 +1,4 @@
-encryptionsalt: v1:g59TBzTxawA=:v1:2C489wxoEqBL7ta4:98PyAtPmrGlau30FZOOQjuD4J0O2Mw==
+encryptionsalt: v1:Yzblz5MnviU=:v1:Yl/QB7tTJuZWD8dX:Gy8TAsyuHbcWaWPsyFYn6Ss8qFkGmg==
 config:
   aws:region: us-east-1
   aws:profile: sbanalademo
