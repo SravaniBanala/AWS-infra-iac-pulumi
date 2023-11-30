@@ -31,6 +31,25 @@ const keypairName = config.require('keypairName');
 const rdsUsername = config.require('rdsUsername');
 const rdsPassword = config.require('rdsPassword');
 const rdsdbName = config.require('rdsdbName');
+const bucketName = config.require('BUCKETNAME');
+const bucketlocation = config.require('bucketlocation');
+const roleToAdd = config.require('serviceaccountrole');
+const serviceaccountIDGCP = config.require('serviceaccountIDGCP');
+const privateKeyPath = config.require('privateKeyPath');
+const snsTopicName = config.require('snsTopicName');
+const SMTPUSER = config.require('SMTPUSER');
+const SMTPPASSWORD = config.require('SMTPPASSWORD');
+const SMTPHOST = config.require('SMTPHOST');
+const SENDEREMAIL = config.require('SENDEREMAIL');
+const SMTPPORT = config.require('SMTPPORT');
+const PROJECTID = config.require('PROJECTID');
+const LAMBDAFUNCTIONNAME = config.require('LAMBDAFUNCTIONNAME');
+const CCEMAILLIST = config.require('CCEMAILLIST');
+const dynamoDBTableName = config.require('dynamoDBTableName');
+const lambdaFilePath = config.require('lambdaFilePath');
+const lambdaIAMRoleCloudwatchPolicyARN = config.require('lambdaIAMRoleCloudwatchPolicyARN');
+const lambdaIAMRoleDynamoDBPolicyARN = config.require('lambdaIAMRoleDynamoDBPolicyARN');
+const AWSREGION = config.require('AWSREGION');
 
 const ArecordofDNS = "A";
 
@@ -81,6 +100,11 @@ const cloudWatchPolicy = new aws.iam.Policy("CloudWatchPolicy", {
 const cloudWatchPolicyAttachment = new aws.iam.PolicyAttachment("CloudWatchPolicyAttachment", {
     policyArn: cloudWatchPolicy.arn,
     roles: [ec2Role.name],
+});
+
+const snsAccessForEC2 = new aws.iam.RolePolicyAttachment("SNS ACCESS POLICY", {
+    role: ec2Role.name,
+    policyArn: "arn:aws:iam::aws:policy/AmazonSNSFullAccess",
 });
 const instanceProfile = new aws.iam.InstanceProfile("EC2InstanceProfile", {
     name: "EC2InstanceProfile",
@@ -469,19 +493,25 @@ aws.getAvailabilityZones({State :"available"}).then(availableZones => {
         publiclyAccessible: false,
     });
 
-    const webappUserData = pulumi.all([rdsInstance.endpoint, rdsInstance.username, rdsInstance.password, rdsInstance.dbName])
-    .apply(([endpoint, username, password, dbName]) => {
+    const topic = new aws.sns.Topic("mytopicfortest", {
+        name: snsTopicName
+    });
+
+    const webappUserData = pulumi.all([rdsInstance.endpoint, rdsInstance.username, rdsInstance.password, rdsInstance.dbName, topic.arn, AWSREGION])
+    .apply(([endpoint, username, password, dbName, topicsnsARN, region]) => {
         return `#!/bin/bash
-        if [ -f "${envFilePath}" ]; then
-            rm "${envFilePath}"
-        fi
-        echo "DB_HOST=\$(echo ${endpoint} | cut -d':' -f1)" >> ${envFilePath}
-        echo "DB_DIALECT=mysql" >> ${envFilePath}
-        echo "DB_USER=${username}" >> ${envFilePath}
-        echo "DB_PASSWORD=${password}" >> ${envFilePath}
-        echo "DB_DATABASE=${dbName}" >> ${envFilePath}
-        echo "PORT=8087" >> ${envFilePath}
-        sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/opt/amazon-cloudwatch-agent.json`;
+    if [ -f "${envFilePath}" ]; then
+        rm "${envFilePath}"
+    fi
+    echo "DB_HOST=\$(echo ${endpoint} | cut -d':' -f1)" >> ${envFilePath}
+    echo "DB_DIALECT=mysql" >> ${envFilePath}
+    echo "DB_USER=${username}" >> ${envFilePath}
+    echo "DB_PASSWORD=${password}" >> ${envFilePath}
+    echo "DB_DATABASE=${dbName}" >> ${envFilePath}
+    echo "ARNSNSTOPIC=${topicsnsARN}" >> ${envFilePath}
+    echo "AWS_SNS_REGION=${region}" >> ${envFilePath}
+    echo "PORT=8087" >> ${envFilePath}
+    sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/opt/amazon-cloudwatch-agent.json`;
     });
  
 const base64UserData = webappUserData.apply(data => Buffer.from(data).toString('base64'));
@@ -713,7 +743,131 @@ const appLoadBalancerRecord = new aws.route53.Record("appLoadBalancerRecord", {
 
 
 });
+
+const uniqueSuffix = new Date().getTime().toString();
+ 
+const uniqueBucketName = pulumi.interpolate`${bucketName}-${uniqueSuffix}`;
+ 
+const bucket = new gcp.storage.Bucket("GCPForceDestroyBucket", {
+    name: uniqueBucketName,
+    location: bucketlocation,
+    storageClass: "STANDARD",
+    forceDestroy: true,
+    publicAccessPrevention: "enforced",
+    versioning: {
+        enabled: true,
+    },
+});
+
+const serviceAccount = new gcp.serviceaccount.Account("my-serviceAccount", {
+    accountId: serviceaccountIDGCP,
+    displayName: "My New Service Account",
+});
+ 
+const objectAdminBinding = new gcp.storage.BucketIAMBinding("objectAdminBinding", {
+    bucket: bucket.name,
+    role: roleToAdd,
+    members: [pulumi.interpolate`serviceAccount:${serviceAccount.email}`],
+});
+ 
+const roles = ["roles/storage.admin"];
+ 
+for (const role of roles) {
+    const serviceIAMBinding = new gcp.projects.IAMMember(`myServiceAccountBinding-${role}`, {
+        role: role,
+        member: serviceAccount.email.apply(email => `serviceAccount:${email}`),
+        project: PROJECTID,
+    });
+}
+ 
+const serviceAccountKey = new gcp.serviceaccount.Key("my-serviceAccountKey", {
+    serviceAccountId: serviceAccount.name,
+    privateKeyType: "TYPE_GOOGLE_CREDENTIALS_FILE",
+});
+ 
+const snsTopic = new aws.sns.Topic("SNSWebappTopic", {
+    name: snsTopicName
+});
+ 
+ 
+const dynamoDBTable = new aws.dynamodb.Table("dynamoDBTableName", {
+    name: dynamoDBTableName,
+    attributes: [
+        { name: "uniqueId", type: "S"},
+    ],
+    hashKey: "uniqueId",
+    readCapacity: 5,
+    writeCapacity: 5,
+});
+ 
+ 
+ 
+const lambdaRole = new aws.iam.Role("roleForLambda", {
+    assumeRolePolicy: {
+       Version: "2012-10-17",
+       Statement: [{
+          Action: "sts:AssumeRole",
+          Principal: {
+             Service: "lambda.amazonaws.com",
+          },
+          Effect: "Allow",
+          Sid: "",
+       }],
+    },
+});
+ 
+const lambdacloudWatchPolicyAttachment = new aws.iam.PolicyAttachment("lambdacloudWatchPolicyAttachment", {
+    policyArn: lambdaIAMRoleCloudwatchPolicyARN,
+    roles: [lambdaRole.name],
+});
+ 
+const lambdaDynamoDBPolicyAttachment = new aws.iam.PolicyAttachment("lambdaDynamoDBPolicyAttachment", {
+    policyArn: lambdaIAMRoleDynamoDBPolicyARN,
+    roles: [lambdaRole.name],
+});
+ 
+const lambdafunction = new aws.lambda.Function("TestLambda", {
+    name: LAMBDAFUNCTIONNAME,
+    code: new pulumi.asset.FileArchive(lambdaFilePath),
+    handler: "index.handler",
+    runtime: "nodejs18.x",
+    invokeArn: snsTopic.arn,
+    publish: true,
+    timeout: 120,
+    role: lambdaRole.arn,
+    environment: {
+        variables:
+        {
+            PRIVATEKEY: serviceAccountKey.privateKey,
+            BUCKETNAME: bucket.name,
+            SMTPUSER: SMTPUSER,
+            SMTPPASSWORD: SMTPPASSWORD,
+            SMTPHOST: SMTPHOST,
+            SENDEREMAIL: SENDEREMAIL,
+            SMTPPORT: SMTPPORT,
+            PROJECTID: PROJECTID,
+            CCEMAILLIST: CCEMAILLIST,
+            DYNAMODBTABLENAME: dynamoDBTable.name,
+            REGION: AWSREGION
+        }
+    },
+});
+ 
+const lambdaSubscription = new aws.sns.TopicSubscription("lambdaSubscription", {
+    protocol: "lambda",
+    topic: snsTopic.arn,
+    endpoint: lambdafunction.arn,
+});
+ 
+const lambdaTriggerPoint = new aws.lambda.Permission("lambdaTriggerFunction", {
+    action: "lambda:InvokeFunction",
+    function: lambdafunction.name,
+    principal: "sns.amazonaws.com",
+    sourceArn: snsTopic.arn,
+});
+
 exports.roleName = ec2Role.name;
+
 
 
 

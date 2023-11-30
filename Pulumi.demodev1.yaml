@@ -1,0 +1,40 @@
+encryptionsalt: v1:1eAKzA3ZK7A=:v1:T1b3GnwNa1ko9Tvg:FjTM53wEPj4RyxUnijTJjWOFKirPZA==
+config:
+  aws:profile: sbanaladev2
+  aws:region: us-east-1
+  gcp:project: "sbanala-dev"
+  gcp:region: us-east1
+  iac-pulumi:amiName: amicsye6225-20231129150830
+  iac-pulumi:amiOwner: "362293234433"
+  iac-pulumi:cidrBlock: 10.0.0.0/16
+  iac-pulumi:domainName: dev.pointcsye6225.me
+  iac-pulumi:hostedZoneId: Z0704046XJZI81A2RN62
+  iac-pulumi:keypairName: mywebappdev2
+  iac-pulumi:project: sbanala-dev
+  iac-pulumi:publicCidrBlock: 0.0.0.0/0
+  iac-pulumi:rdsPassword: root1234
+  iac-pulumi:rdsUsername: csye6225
+  iac-pulumi:rdsdbName: csye6225
+  iac-pulumi:bucketlocation: us-east1
+  iac-pulumi:awsSNSRegion: us-east-1
+   iac-pulumi:BUCKETNAME: "assignmentsub"
+  iac-pulumi:SMTPHOST: email-smtp.us-east-1.amazonaws.com
+  iac-pulumi:SMTPUSER: AKIAVIWS4BMA33PNJPPI
+  iac-pulumi:SMTPPASSWORD: BGRmcNaoN2gLEeMbZRObCCE0Omc4A5t9FP33Vcq/ogfc
+  iac-pulumi:SENDEREMAIL: "no-reply@demo.pointcsye6225.me"
+  iac-pulumi:CCEMAILLIST: ["sravanibvl.99@gmail.com","sravanibanala2@gmail.com"]
+  iac-pulumi:SMTPPORT: 587
+  iac-pulumi:serviceaccountIDGCP: "lambdaserviceaccount"
+  iac-pulumi:PROJECTID: "sbanala-dev"
+  iac-pulumi:snsTopicName: "lambda-notification-service"
+  iac-pulumi:dynamoDBTableName: "emailtracktable"
+  iac-pulumi:lambdaIAMRoleCloudwatchPolicyARN: "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+  iac-pulumi:lambdaIAMRoleDynamoDBPolicyARN: "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
+  iac-pulumi:LAMBDAFUNCTIONNAME: "SERVERLESS"
+  iac-pulumi:lambdaFilePath: "serverless.zip"
+  iac-pulumi:serviceaccountrole: "roles/storage.admin"
+  iac-pulumi:displayName: "lambdaserviceaccount"
+  iac-pulumi:privateKeyType: "TYPE_GOOGLE_CREDENTIALS_FILE"
+  iac-pulumi: privateKeyPath: "private-key-new2.json"
+  iac-pulumi:tags:
+    Name: Created from Script
