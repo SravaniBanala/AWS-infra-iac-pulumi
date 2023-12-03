@@ -2,6 +2,7 @@ const pulumi = require('@pulumi/pulumi');
 
 const aws = require('@pulumi/aws');
 
+const gcp = require("@pulumi/gcp");
 ////const ip = require("ip");
 
 ///const { Address4 } = require('ip-address');
@@ -497,7 +498,7 @@ aws.getAvailabilityZones({State :"available"}).then(availableZones => {
         name: snsTopicName
     });
 
-    const webappUserData = pulumi.all([rdsInstance.endpoint, rdsInstance.username, rdsInstance.password, rdsInstance.dbName, topic.arn, AWSREGION])
+    const webappUserData = pulumi.all([rdsInstance.endpoint, rdsInstance.username, rdsInstance.password, rdsInstance.dbName, snsTopic.arn, AWSREGION])
     .apply(([endpoint, username, password, dbName, topicsnsARN, region]) => {
         return `#!/bin/bash
     if [ -f "${envFilePath}" ]; then
@@ -727,19 +728,6 @@ const appLoadBalancerRecord = new aws.route53.Record("appLoadBalancerRecord", {
     }],
     zoneId: hostedZoneId, // replace with your hosted zone id
 });
-
-   
-    // webappUserData = pulumi.interpolate`cat <<EOF > /home/admin/webapp/.env
-    // NODE_ENV=dev
-    // PORT=8087
-    // DB_DIALECT=mysql
-    // DB_HOST=\$(echo ${rdsInstance.endpoint} | cut -d':' -f1)
-    // DB_USER=${rdsInstance.username}
-    // DB_PASSWORD=${rdsInstance.password}
-    // DB_DATABASE=${rdsInstance.dbName}
-    // EOF`;
-
-    //webappUserData: pulumi.interpolate`#!/bin/bash\nrm webapp/.env\necho "DATABASE_HOST: mohan.c4tltzid5dl3.us-east-1.rds.amazonaws.com" >> /home/admin/webapp/.env\necho "DATABASE_USER: mohan" >> /home/admin/webapp/.env\necho "DATABASE_PASSWORD: password" >> /home/admin/webapp/.env\necho "DATABASE_NAME: test" >> /home/admin/webapp/.env\necho "PORT: 8080" >> /home/admin/webapp/.env\n`,
 
 
 });
