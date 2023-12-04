@@ -51,6 +51,7 @@ const lambdaFilePath = config.require('lambdaFilePath');
 const lambdaIAMRoleCloudwatchPolicyARN = config.require('lambdaIAMRoleCloudwatchPolicyARN');
 const lambdaIAMRoleDynamoDBPolicyARN = config.require('lambdaIAMRoleDynamoDBPolicyARN');
 const AWSREGION = config.require('AWSREGION');
+const SSLcertificateARN = config.require('SSLcertificateARN');
 
 const ArecordofDNS = "A";
 
@@ -620,7 +621,7 @@ const applbTargetGroup = new aws.lb.TargetGroup("applbTargetGroup", {
 });
 
 const autoScalingGroup = new aws.autoscaling.Group("autoScalingGroup", {
-    name: "auto-scaling-group",
+   name: "auto-scaling-group",
    // healthCheckGracePeriod: 300,
    // healthCheckType: "EC2",
    // availabilityZones: ,
@@ -709,7 +710,10 @@ const appLoadBalancerListener = new aws.lb.Listener("appLoadBalancerListener", {
  
     //the Load Balancer Amazon Resource Name (ARN) is a unique identifier
     loadBalancerArn: appLoadBalancer.arn,
-    port: 80,
+    port: 443,
+    protocol:"HTTPS",
+    sslPolicy: "ELBSecurityPolicy-TLS13-1-2-2021-06",
+    certificateArn: SSLcertificateARN,
     defaultActions: [{
         type: "forward",
  

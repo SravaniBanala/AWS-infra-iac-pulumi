@@ -37,6 +37,7 @@ config:
   iac-pulumi:privateKeyType: "TYPE_GOOGLE_CREDENTIALS_FILE"
   iac-pulumi:privateKeyPath: "private-key-new2.json"
   iac-pulumi:AWSREGION: us-east-1
+  iac-pulumi:SSLcertificateARN: arn:aws:acm:us-east-1:377472364777:certificate/0c4cc965-378f-40a3-b338-1de450444b21
   iac-pulumi:
    tags:
 

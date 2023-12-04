@@ -11,3 +11,6 @@ Run pulumi up to initialize the project and download necessary plugins.
 Run pulumi destroy to destroy the VPC
 
 Run pulumi refresh to refresh for the updated changes
+
+Command to Import Certificate 
+aws acm import-certificate --certificate file://certificate_base64.txt --certificate-chain file://ca_bundle_base64.txt --private-key file://private_base64.txt --profile sbanalademo --region us-east-1
