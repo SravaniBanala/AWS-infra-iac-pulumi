@@ -22,7 +22,7 @@ config:
   iac-pulumi:SMTPUSER: postmaster@pointcsye6225.me
   iac-pulumi:SMTPPASSWORD: smtp12345
   iac-pulumi:SENDEREMAIL: "no-reply@pointcsye6225.me"
-  iac-pulumi:CCEMAILLIST: ["sravanibvl.99@gmail.com","sravanibanala2@gmail.com","banala.sr@northeastern.edu"]
+  iac-pulumi:CCEMAILLIST: ["banala.sr@northeastern.edu"]
   iac-pulumi:SMTPPORT: 587
   iac-pulumi:serviceaccountIDGCP: "lambdaserviceaccount"
   iac-pulumi:PROJECTID: "sbanala-demo"
